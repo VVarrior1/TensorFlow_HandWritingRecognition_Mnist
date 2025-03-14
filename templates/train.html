@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Training the MNIST Model</title>
+    <style>
+      body {
+        font-family: "Arial", sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+        color: #333;
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      h1,
+      h2,
+      h3 {
+        color: #2c3e50;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      pre {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        overflow-x: auto;
+        border-left: 4px solid #3498db;
+      }
+      code {
+        font-family: "Courier New", monospace;
+      }
+      .step {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+      }
+      .step:last-child {
+        border-bottom: none;
+      }
+      .note {
+        background-color: #eaf2f8;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 5px solid #3498db;
+        margin: 15px 0;
+      }
+      .warning {
+        background-color: #fef9e7;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 5px solid #f1c40f;
+        margin: 15px 0;
+      }
+      a {
+        color: #3498db;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .back-link {
+        display: inline-block;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Training the MNIST Handwriting Recognition Model</h1>
+
+    <div class="container">
+      <div class="step">
+        <h2>Step 1: Install Dependencies</h2>
+        <p>Make sure you have all the required dependencies installed:</p>
+        <pre><code>pip install -r requirements.txt</code></pre>
+      </div>
+
+      <div class="step">
+        <h2>Step 2: Train the Model</h2>
+        <p>
+          Run the training script to download the MNIST dataset and train the
+          model:
+        </p>
+        <pre><code>python mnist_handwriting_recognition.py</code></pre>
+        <p>This will:</p>
+        <ul>
+          <li>Download the MNIST dataset (if not already downloaded)</li>
+          <li>Preprocess the data</li>
+          <li>Create and train a convolutional neural network</li>
+          <li>Save the trained model to <code>models/mnist_model.h5</code></li>
+          <li>Generate performance visualizations</li>
+        </ul>
+
+        <div class="note">
+          <p>
+            <strong>Note:</strong> The training process may take several minutes
+            depending on your hardware. The script will display progress
+            information during training.
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <h2>Step 3: Use the Web Application</h2>
+        <p>
+          Once the model is trained, you can use the web application to draw
+          digits and get predictions:
+        </p>
+        <pre><code>python app.py</code></pre>
+        <p>
+          Then open your browser and navigate to:
+          <a href="http://127.0.0.1:5000">http://127.0.0.1:5000</a>
+        </p>
+      </div>
+
+      <div class="step">
+        <h2>Step 4: Test with Custom Images (Optional)</h2>
+        <p>You can also test the model with your own image files:</p>
+        <pre><code>python test_custom_image.py path/to/your/image.png</code></pre>
+        <p>
+          The image should contain a single handwritten digit on a contrasting
+          background.
+        </p>
+      </div>
+
+      <div class="warning">
+        <p>
+          <strong>Important:</strong> The model is trained on the MNIST dataset,
+          which consists of 28x28 pixel grayscale images of handwritten digits
+          (0-9). For best results, your handwritten digits should be:
+        </p>
+        <ul>
+          <li>Centered in the drawing area</li>
+          <li>
+            Large enough to fill a significant portion of the drawing area
+          </li>
+          <li>Written with a thick stroke</li>
+          <li>Written on a contrasting background</li>
+        </ul>
+      </div>
+
+      <a href="/" class="back-link">← Back to Drawing Canvas</a>
+    </div>
+  </body>
+</html>

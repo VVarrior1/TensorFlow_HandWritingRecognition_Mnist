@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MNIST Handwriting Recognition</title>
+    <style>
+      body {
+        font-family: "Arial", sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+        color: #333;
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      h1 {
+        color: #2c3e50;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .canvas-container {
+        position: relative;
+        margin-bottom: 20px;
+        border: 2px solid #3498db;
+        border-radius: 5px;
+        background-color: white;
+      }
+      #drawing-canvas {
+        cursor: crosshair;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      button {
+        padding: 10px 15px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+      }
+      button:hover {
+        background-color: #2980b9;
+      }
+      button:disabled {
+        background-color: #95a5a6;
+        cursor: not-allowed;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 20px;
+        background-color: white;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        min-height: 100px;
+        width: 100%;
+        max-width: 400px;
+      }
+      .prediction {
+        font-size: 24px;
+        font-weight: bold;
+        margin: 10px 0;
+      }
+      .confidence {
+        color: #7f8c8d;
+      }
+      .error {
+        color: #e74c3c;
+        text-align: center;
+        margin: 20px 0;
+      }
+      .info {
+        margin-top: 30px;
+        padding: 15px;
+        background-color: #eaf2f8;
+        border-radius: 5px;
+        border-left: 5px solid #3498db;
+      }
+      .info h3 {
+        margin-top: 0;
+        color: #2c3e50;
+      }
+      .info ul {
+        padding-left: 20px;
+      }
+      .info li {
+        margin-bottom: 5px;
+      }
+      .loading {
+        display: none;
+        text-align: center;
+        margin: 10px 0;
+      }
+      .spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        border-radius: 50%;
+        border-top: 4px solid #3498db;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>MNIST Handwriting Recognition</h1>
+
+    <div class="container">
+      {% if not model_loaded %}
+      <div class="error">
+        <p>Model not loaded. Please train the model first by running:</p>
+        <code>python mnist_handwriting_recognition.py</code>
+        <p><a href="/train">Learn more about training the model</a></p>
+      </div>
+      {% else %}
+      <div class="canvas-container">
+        <canvas id="drawing-canvas" width="280" height="280"></canvas>
+      </div>
+
+      <div class="controls">
+        <button id="predict-btn">Predict</button>
+        <button id="clear-btn">Clear</button>
+      </div>
+
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+      </div>
+
+      <div class="result">
+        <h3>Prediction Result</h3>
+        <div id="prediction-result">
+          <p>Draw a digit (0-9) and click "Predict"</p>
+        </div>
+      </div>
+
+      <div class="info">
+        <h3>How to use:</h3>
+        <ul>
+          <li>Draw a single digit (0-9) in the canvas above</li>
+          <li>Try to center your digit and make it large enough</li>
+          <li>Click "Predict" to see the model's prediction</li>
+          <li>Click "Clear" to erase and try again</li>
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+          {% if model_loaded %}
+          const canvas = document.getElementById('drawing-canvas');
+          const ctx = canvas.getContext('2d');
+          const predictBtn = document.getElementById('predict-btn');
+          const clearBtn = document.getElementById('clear-btn');
+          const resultDiv = document.getElementById('prediction-result');
+          const loadingDiv = document.querySelector('.loading');
+
+          let isDrawing = false;
+          let lastX = 0;
+          let lastY = 0;
+
+          // Set up canvas
+          // Set white background
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.lineWidth = 25;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = 'black';
+
+          // Draw grid for guidance (light gray)
+          function drawGrid() {
+              ctx.save();
+              ctx.strokeStyle = '#f0f0f0';  // Even lighter gray
+              ctx.lineWidth = 1;
+
+              // Draw vertical lines
+              for (let x = 0; x <= canvas.width; x += 70) {
+                  ctx.beginPath();
+                  ctx.moveTo(x, 0);
+                  ctx.lineTo(x, canvas.height);
+                  ctx.stroke();
+              }
+
+              // Draw horizontal lines
+              for (let y = 0; y <= canvas.height; y += 70) {
+                  ctx.beginPath();
+                  ctx.moveTo(0, y);
+                  ctx.lineTo(canvas.width, y);
+                  ctx.stroke();
+              }
+
+              // Draw center point
+              ctx.strokeStyle = '#e0e0e0';
+              ctx.beginPath();
+              ctx.arc(canvas.width/2, canvas.height/2, 5, 0, Math.PI * 2);
+              ctx.stroke();
+
+              ctx.restore();
+          }
+
+          // Clear canvas
+          function clearCanvas() {
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.fillStyle = 'white';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              drawGrid();
+              resultDiv.innerHTML = '<p>Draw a digit (0-9) and click "Predict"</p>';
+          }
+
+          // Start drawing
+          canvas.addEventListener('mousedown', (e) => {
+              isDrawing = true;
+              [lastX, lastY] = [e.offsetX, e.offsetY];
+          });
+
+          // Draw
+          canvas.addEventListener('mousemove', (e) => {
+              if (!isDrawing) return;
+
+              ctx.beginPath();
+              ctx.moveTo(lastX, lastY);
+              ctx.lineTo(e.offsetX, e.offsetY);
+              ctx.stroke();
+
+              [lastX, lastY] = [e.offsetX, e.offsetY];
+          });
+
+          // Stop drawing
+          canvas.addEventListener('mouseup', () => isDrawing = false);
+          canvas.addEventListener('mouseout', () => isDrawing = false);
+
+          // Clear button
+          clearBtn.addEventListener('click', clearCanvas);
+
+          // Predict button
+          predictBtn.addEventListener('click', async () => {
+              // Get image data
+              const imageData = canvas.toDataURL('image/png');
+
+              // Show loading
+              loadingDiv.style.display = 'block';
+              resultDiv.innerHTML = '';
+
+              try {
+                  // Send to server
+                  const response = await fetch('/predict', {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ image: imageData })
+                  });
+
+                  const data = await response.json();
+
+                  // Hide loading
+                  loadingDiv.style.display = 'none';
+
+                  if (data.error) {
+                      resultDiv.innerHTML = `<p class="error">${data.error}</p>`;
+                  } else {
+                      resultDiv.innerHTML = `
+                          <p class="prediction">Digit: ${data.digit}</p>
+                          <p class="confidence">Confidence: ${data.confidence.toFixed(2)}%</p>
+                      `;
+                  }
+              } catch (error) {
+                  // Hide loading
+                  loadingDiv.style.display = 'none';
+                  resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+              }
+          });
+
+          // Touch support for mobile devices
+          canvas.addEventListener('touchstart', (e) => {
+              e.preventDefault();
+              const touch = e.touches[0];
+              const rect = canvas.getBoundingClientRect();
+              const touchX = touch.clientX - rect.left;
+              const touchY = touch.clientY - rect.top;
+
+              isDrawing = true;
+              [lastX, lastY] = [touchX, touchY];
+          });
+
+          canvas.addEventListener('touchmove', (e) => {
+              e.preventDefault();
+              if (!isDrawing) return;
+
+              const touch = e.touches[0];
+              const rect = canvas.getBoundingClientRect();
+              const touchX = touch.clientX - rect.left;
+              const touchY = touch.clientY - rect.top;
+
+              ctx.beginPath();
+              ctx.moveTo(lastX, lastY);
+              ctx.lineTo(touchX, touchY);
+              ctx.stroke();
+
+              [lastX, lastY] = [touchX, touchY];
+          });
+
+          canvas.addEventListener('touchend', () => {
+              isDrawing = false;
+          });
+
+          // Clear canvas initially
+          clearCanvas();
+
+            // Draw the grid initially
+            drawGrid();
+          {% endif %}
+      });
+    </script>
+  </body>
+</html>
