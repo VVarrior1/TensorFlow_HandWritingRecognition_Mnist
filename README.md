@@ -2,7 +2,7 @@
 
 A web application that recognizes handwritten digits using a Convolutional Neural Network (CNN) trained on the MNIST dataset. Users can draw digits on a canvas and get real-time predictions.
 
-![Demo of the Handwriting Recognition App](demo.png)
+<img src="demo.png" alt="Demo of the Handwriting Recognition App" width="400"/>
 
 ## Features
 
