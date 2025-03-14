@@ -112,6 +112,36 @@
         animation: spin 1s linear infinite;
         margin: 0 auto;
       }
+      .model-selector {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: white;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        width: 100%;
+        max-width: 400px;
+      }
+      .model-selector h3 {
+        margin-top: 0;
+        color: #2c3e50;
+      }
+      .model-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 10px;
+      }
+      .model-btn {
+        padding: 8px 12px;
+      }
+      .model-btn.active {
+        background-color: #27ae60;
+      }
+      .model-btn.disabled {
+        background-color: #95a5a6;
+        cursor: not-allowed;
+      }
       @keyframes spin {
         0% {
           transform: rotate(0deg);
@@ -128,11 +158,56 @@
     <div class="container">
       {% if not model_loaded %}
       <div class="error">
-        <p>Model not loaded. Please train the model first by running:</p>
-        <code>python mnist_handwriting_recognition.py</code>
-        <p><a href="/train">Learn more about training the model</a></p>
+        <p>
+          No models loaded. Please train at least one model first by running:
+        </p>
+        <code>python train.py --model cnn</code> (for CNN model)<br />
+        <code>python train.py --model simple</code> (for simple model)
+        <p><a href="/train">Learn more about training the models</a></p>
       </div>
       {% else %}
+      <div class="model-selector">
+        <h3>Select Model</h3>
+        <div class="model-buttons">
+          <a
+            href="/switch_model/cnn"
+            class="model-btn {% if current_model == 'cnn' %}active{% endif %} {% if not available_models.cnn %}disabled{% endif %}"
+            {%
+            if
+            not
+            available_models.cnn
+            %}onclick="return false;"
+            {%
+            endif
+            %}
+          >
+            CNN Model {% if not available_models.cnn %}(Not Available){% endif
+            %}
+          </a>
+          <a
+            href="/switch_model/simple"
+            class="model-btn {% if current_model == 'simple' %}active{% endif %} {% if not available_models.simple %}disabled{% endif %}"
+            {%
+            if
+            not
+            available_models.simple
+            %}onclick="return false;"
+            {%
+            endif
+            %}
+          >
+            Simple Model {% if not available_models.simple %}(Not Available){%
+            endif %}
+          </a>
+        </div>
+        <p>
+          <small
+            >Currently using:
+            <strong>{{ current_model|upper }}</strong> model</small
+          >
+        </p>
+      </div>
+
       <div class="canvas-container">
         <canvas id="drawing-canvas" width="280" height="280"></canvas>
       </div>
@@ -161,178 +236,170 @@
           <li>Try to center your digit and make it large enough</li>
           <li>Click "Predict" to see the model's prediction</li>
           <li>Click "Clear" to erase and try again</li>
+          <li>Switch between models to compare their performance</li>
         </ul>
       </div>
       {% endif %}
     </div>
 
     <script>
-      document.addEventListener('DOMContentLoaded', function() {
-          {% if model_loaded %}
-          const canvas = document.getElementById('drawing-canvas');
-          const ctx = canvas.getContext('2d');
-          const predictBtn = document.getElementById('predict-btn');
-          const clearBtn = document.getElementById('clear-btn');
-          const resultDiv = document.getElementById('prediction-result');
-          const loadingDiv = document.querySelector('.loading');
+      document.addEventListener("DOMContentLoaded", function() {
+        {% if model_loaded %}
+        const canvas = document.getElementById("drawing-canvas");
+        const ctx = canvas.getContext("2d");
+        const predictBtn = document.getElementById("predict-btn");
+        const clearBtn = document.getElementById("clear-btn");
+        const resultDiv = document.getElementById("prediction-result");
+        const loadingDiv = document.querySelector(".loading");
 
-          let isDrawing = false;
-          let lastX = 0;
-          let lastY = 0;
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
 
-          // Set up canvas
-          // Set white background
-          ctx.fillStyle = 'white';
+        // Set up canvas
+        // Set white background
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.lineWidth = 25;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "black";
+
+        // Draw grid for guidance (light gray)
+        function drawGrid() {
+          ctx.save();
+          ctx.strokeStyle = "#f0f0f0"; // Even lighter gray
+          ctx.lineWidth = 1;
+
+          // Draw vertical lines
+          for (let x = 0; x <= canvas.width; x += 70) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+          }
+
+          // Draw horizontal lines
+          for (let y = 0; y <= canvas.height; y += 70) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+          }
+
+          // Draw center point
+          ctx.strokeStyle = "#e0e0e0";
+          ctx.beginPath();
+          ctx.arc(canvas.width / 2, canvas.height / 2, 5, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.restore();
+        }
+
+        // Clear canvas
+        function clearCanvas() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "white";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
+          drawGrid();
+          resultDiv.innerHTML = '<p>Draw a digit (0-9) and click "Predict"</p>';
+        }
 
-          ctx.lineWidth = 25;
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.strokeStyle = 'black';
+        // Start drawing
+        canvas.addEventListener("mousedown", (e) => {
+          isDrawing = true;
+          [lastX, lastY] = [e.offsetX, e.offsetY];
+        });
 
-          // Draw grid for guidance (light gray)
-          function drawGrid() {
-              ctx.save();
-              ctx.strokeStyle = '#f0f0f0';  // Even lighter gray
-              ctx.lineWidth = 1;
+        // Draw
+        canvas.addEventListener("mousemove", (e) => {
+          if (!isDrawing) return;
 
-              // Draw vertical lines
-              for (let x = 0; x <= canvas.width; x += 70) {
-                  ctx.beginPath();
-                  ctx.moveTo(x, 0);
-                  ctx.lineTo(x, canvas.height);
-                  ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(lastX, lastY);
+          ctx.lineTo(e.offsetX, e.offsetY);
+          ctx.stroke();
+
+          [lastX, lastY] = [e.offsetX, e.offsetY];
+        });
+
+        // Stop drawing
+        canvas.addEventListener("mouseup", () => (isDrawing = false));
+        canvas.addEventListener("mouseout", () => (isDrawing = false));
+
+        // Touch support for mobile devices
+        canvas.addEventListener("touchstart", (e) => {
+          e.preventDefault();
+          const touch = e.touches[0];
+          const mouseEvent = new MouseEvent("mousedown", {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+          });
+          canvas.dispatchEvent(mouseEvent);
+        });
+
+        canvas.addEventListener("touchmove", (e) => {
+          e.preventDefault();
+          const touch = e.touches[0];
+          const mouseEvent = new MouseEvent("mousemove", {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+          });
+          canvas.dispatchEvent(mouseEvent);
+        });
+
+        canvas.addEventListener("touchend", (e) => {
+          e.preventDefault();
+          const mouseEvent = new MouseEvent("mouseup", {});
+          canvas.dispatchEvent(mouseEvent);
+        });
+
+        // Clear button
+        clearBtn.addEventListener("click", clearCanvas);
+
+        // Predict button
+        predictBtn.addEventListener("click", () => {
+          // Get canvas data
+          const imageData = canvas.toDataURL("image/png");
+
+          // Show loading
+          loadingDiv.style.display = "block";
+          resultDiv.innerHTML = "";
+
+          // Send to server
+          fetch("/predict", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ image: imageData })
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              // Hide loading
+              loadingDiv.style.display = "none";
+
+              if (data.error) {
+                resultDiv.innerHTML = `<p class="error">${data.error}</p>`;
+              } else {
+                resultDiv.innerHTML = `
+                  <p class="prediction">Digit: ${data.digit}</p>
+                  <p class="confidence">Confidence: ${data.confidence.toFixed(2)}%</p>
+                  <p class="model-info">Using: ${data.model_type.toUpperCase()} model</p>
+                `;
               }
+            })
+            .catch((error) => {
+              // Hide loading
+              loadingDiv.style.display = "none";
+              resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            });
+        });
 
-              // Draw horizontal lines
-              for (let y = 0; y <= canvas.height; y += 70) {
-                  ctx.beginPath();
-                  ctx.moveTo(0, y);
-                  ctx.lineTo(canvas.width, y);
-                  ctx.stroke();
-              }
-
-              // Draw center point
-              ctx.strokeStyle = '#e0e0e0';
-              ctx.beginPath();
-              ctx.arc(canvas.width/2, canvas.height/2, 5, 0, Math.PI * 2);
-              ctx.stroke();
-
-              ctx.restore();
-          }
-
-          // Clear canvas
-          function clearCanvas() {
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              ctx.fillStyle = 'white';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-              drawGrid();
-              resultDiv.innerHTML = '<p>Draw a digit (0-9) and click "Predict"</p>';
-          }
-
-          // Start drawing
-          canvas.addEventListener('mousedown', (e) => {
-              isDrawing = true;
-              [lastX, lastY] = [e.offsetX, e.offsetY];
-          });
-
-          // Draw
-          canvas.addEventListener('mousemove', (e) => {
-              if (!isDrawing) return;
-
-              ctx.beginPath();
-              ctx.moveTo(lastX, lastY);
-              ctx.lineTo(e.offsetX, e.offsetY);
-              ctx.stroke();
-
-              [lastX, lastY] = [e.offsetX, e.offsetY];
-          });
-
-          // Stop drawing
-          canvas.addEventListener('mouseup', () => isDrawing = false);
-          canvas.addEventListener('mouseout', () => isDrawing = false);
-
-          // Clear button
-          clearBtn.addEventListener('click', clearCanvas);
-
-          // Predict button
-          predictBtn.addEventListener('click', async () => {
-              // Get image data
-              const imageData = canvas.toDataURL('image/png');
-
-              // Show loading
-              loadingDiv.style.display = 'block';
-              resultDiv.innerHTML = '';
-
-              try {
-                  // Send to server
-                  const response = await fetch('/predict', {
-                      method: 'POST',
-                      headers: {
-                          'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({ image: imageData })
-                  });
-
-                  const data = await response.json();
-
-                  // Hide loading
-                  loadingDiv.style.display = 'none';
-
-                  if (data.error) {
-                      resultDiv.innerHTML = `<p class="error">${data.error}</p>`;
-                  } else {
-                      resultDiv.innerHTML = `
-                          <p class="prediction">Digit: ${data.digit}</p>
-                          <p class="confidence">Confidence: ${data.confidence.toFixed(2)}%</p>
-                      `;
-                  }
-              } catch (error) {
-                  // Hide loading
-                  loadingDiv.style.display = 'none';
-                  resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
-              }
-          });
-
-          // Touch support for mobile devices
-          canvas.addEventListener('touchstart', (e) => {
-              e.preventDefault();
-              const touch = e.touches[0];
-              const rect = canvas.getBoundingClientRect();
-              const touchX = touch.clientX - rect.left;
-              const touchY = touch.clientY - rect.top;
-
-              isDrawing = true;
-              [lastX, lastY] = [touchX, touchY];
-          });
-
-          canvas.addEventListener('touchmove', (e) => {
-              e.preventDefault();
-              if (!isDrawing) return;
-
-              const touch = e.touches[0];
-              const rect = canvas.getBoundingClientRect();
-              const touchX = touch.clientX - rect.left;
-              const touchY = touch.clientY - rect.top;
-
-              ctx.beginPath();
-              ctx.moveTo(lastX, lastY);
-              ctx.lineTo(touchX, touchY);
-              ctx.stroke();
-
-              [lastX, lastY] = [touchX, touchY];
-          });
-
-          canvas.addEventListener('touchend', () => {
-              isDrawing = false;
-          });
-
-          // Clear canvas initially
-          clearCanvas();
-
-            // Draw the grid initially
-            drawGrid();
-          {% endif %}
+        // Initialize
+        drawGrid();
+        {% endif %}
       });
     </script>
   </body>

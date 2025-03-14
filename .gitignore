@@ -11,6 +11,7 @@ ENV/
 models/*.h5
 debug/
 *.log
+tests/outputs/
 
 # IDE
 .vscode/
